@@ -3,7 +3,8 @@
 """This is a control part of the GUI application"""
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+# print(os.path.join(os.getcwd(), '../..'))
+sys.path.append(os.path.join(os.getcwd(), '../..'))
 "3rd party imports: "
 import pathlib
 import sys
@@ -12,10 +13,11 @@ import matplotlib
 import threading
 import time
 matplotlib.use("Qt5Agg")  # forces to use Qt5Agg so that Backends work
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtWidgets
 from PyQt5.Qt import *
 from PyQt5.QtWidgets import QFileDialog  # In order to select a file
+# from orderedset import OrderedSet
 import base64
 from PyQt5.QtCore import pyqtSlot, pyqtSignal
 from PyQt5.QtWidgets import QDesktopWidget
@@ -23,6 +25,7 @@ import random
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import shutil
+import collections
 
 "custom file imports"
 from src.fiberfit_gui import fiberfit_GUI
@@ -32,9 +35,87 @@ from src.fiberfit_control.support import settings
 from src.fiberfit_control.support import error
 from src.fiberfit_control.support import report
 
-class OrderedSet(set):
-    def __init__(self):
-        super(OrderedSet, self).__init__()
+class OrderedSet(collections.MutableSet):
+    """
+    # Recipe from http://code.activestate.com/recipes/576694/
+    Banana banana
+    """
+
+    def __init__(self, iterable=None):
+        self.end = end = []
+        end += [None, end, end]         # sentinel node for doubly linked list
+        self.map = {}                   # key --> [key, prev, next]
+        if iterable is not None:
+            self |= iterable
+
+    def __len__(self):
+        return len(self.map)
+
+    def __contains__(self, key):
+        return key in self.map
+
+    def add(self, key):
+        if key not in self.map:
+            end = self.end
+            curr = end[1]
+            curr[2] = end[1] = self.map[key] = [key, curr, end]
+
+    def __getstate__(self):
+        if len(self) == 0:
+            # The state can't be an empty list.
+            # We need to return a truthy value, or else
+            # __setstate__ won't be run.
+            #
+            # This could have been done more gracefully by always putting
+            # the state in a tuple, but this way is backwards- and forwards-
+            # compatible with previous versions of OrderedSet.
+            return (None,)
+        else:
+            return list(self)
+
+    def __setstate__(self, state):
+        if state == (None,):
+            self.__init__([])
+        else:
+            self.__init__(state)
+
+    def discard(self, key):
+        if key in self.map:
+            key, prev, nxt = self.map.pop(key)
+            prev[2] = nxt
+            nxt[1] = prev
+
+    def __iter__(self):
+        end = self.end
+        curr = end[2]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[2]
+
+    def __reversed__(self):
+        end = self.end
+        curr = end[1]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[1]
+
+    # pylint: disable=arguments-differ
+    def pop(self, last=True):
+        if not self:
+            raise KeyError('set is empty')
+        key = self.end[1][0] if last else self.end[2][0]
+        self.discard(key)
+        return key
+
+    def __repr__(self):
+        if not self:
+            return '%s()' % (self.__class__.__name__,)
+        return '%s(%r)' % (self.__class__.__name__, list(self))
+
+    def __eq__(self, other):
+        if isinstance(other, OrderedSet):
+            return len(self) == len(other) and list(self) == list(other)
+        return set(self) == set(other)
 
 class fft_mainWindow(fiberfit_GUI.Ui_MainWindow, QtWidgets.QMainWindow):
     """Controller part of the application.
@@ -163,7 +244,7 @@ Please go back to "Settings" and change some values.
         Function that signals to show the report.
         """
         if (self.is_started):
-            self.go_export.emit(self.imgList[self.current_index % len(self.selected_files)])
+            self.go_export.emit(self.imgList.__getstate__()[self.current_index % len(self.selected_files)])
 
     def coeff_labels_set_text(self, text, num = None):
         if num is not None:
@@ -242,10 +323,10 @@ Please go back to "Settings" and change some values.
             self.clean_canvas()
         # fills canvas
         try:
-            self.fill_canvas(self.imgList.__getitem__(self.current_index))
+            self.fill_canvas(self.imgList.__getstate__()[self.current_index])
         except IndexError:
             self.current_index -= 1
-            self.fill_canvas(self.imgList.__getitem__(self.current_index))
+            self.fill_canvas(self.imgList.__getstate__()[self.current_index])
 
         if not self.is_resized:
             self.apply_resizing()
@@ -366,7 +447,6 @@ Please go back to "Settings" and change some values.
         # resets current index
         self.current_index = 0
         self.go_run.emit()
-        self.removeTemp()
 
     @pyqtSlot(int)
     def setup_labels(self, num):
@@ -374,10 +454,10 @@ Please go back to "Settings" and change some values.
         Sets up appropriate labels depending on which image is selected.
         :param num: index of the image currently displayed in the figure widget.
         """
-        self.sigLabel.setText("σ = " + str(round(self.imgList.__getitem__(num).sig[0], 2)))
-        self.kLabel.setText("k = " + str(round(self.imgList.__getitem__(num).k, 2)))
-        self.muLabel.setText("μ = " + str(round(self.imgList.__getitem__(num).th, 2)))
-        self.RLabel.setText(('R' + u"\u00B2") + " = " + str(round(self.imgList.__getitem__(num).R2, 2)))
+        self.sigLabel.setText("σ = " + str(round(self.imgList.__getstate__()[num].sig[0], 2)))
+        self.kLabel.setText("k = " + str(round(self.imgList.__getstate__()[num].k, 2)))
+        self.muLabel.setText("μ = " + str(round(self.imgList.__getstate__()[num].th, 2)))
+        self.RLabel.setText(('R' + u"\u00B2") + " = " + str(round(self.imgList.__getstate__()[num].R2, 2)))
 
     def next_image(self):
         """
@@ -388,7 +468,7 @@ Please go back to "Settings" and change some values.
         if (self.is_started):
             # updates current index
             self.current_index = (self.current_index + 1) % len(self.imgList)
-            image = self.imgList.__getitem__(self.current_index)
+            image = self.imgList.__getstate__()[self.current_index]
             self.clean_canvas()
             self.fill_canvas(image)
             self.setup_labels((self.current_index))
@@ -403,7 +483,7 @@ Please go back to "Settings" and change some values.
         if (self.is_started):
             # updates current index
             self.current_index = (self.current_index - 1) % len(self.imgList)
-            image = self.imgList.__getitem__(self.current_index)
+            image = self.imgList.__getstate__()[self.current_index]
             self.clean_canvas()
             self.fill_canvas(image)
             self.setup_labels(self.current_index)
@@ -458,7 +538,7 @@ Please go back to "Settings" and change some values.
                 self.muLabel.setText("μ = " + str(round(image.th, 2)))
                 self.RLabel.setText(('R' + u"\u00B2") + " = " + str(round(image.R2, 2)))
                 # sets current index to the index of the found image.
-                self.current_index = self.imgList.index(image)
+                self.current_index = self.imgList.__contains__(image)
 
     def create_temp_dir(self):
         """Creates a directory to where app would dump all the processed images for canvases.
@@ -569,7 +649,7 @@ class MyThread(threading.Thread):
             toContinue = True
             # Retrieve Figures from data analysis code
             try:
-                sig, k, th, R2, angDist,  cartDist, logScl,  orgImg,  figWidth, figHeigth, runtime = \
+                sig, k, th, R2, angDist,  cartDist, logScl,  orgImg,  figWidth, figHeigth, runtime, normPower, Theta1RadFinal = \
                     computerVision_BP.process_image(filename, self.u_cut, self.l_cut, self.angle_inc, self.rad_step,
                                                     self.screen_dim, self.dpi, self.directory, self.number)
 
@@ -598,7 +678,9 @@ class MyThread(threading.Thread):
                     cartDist=cartDist,
                     cartDistEncoded=cartDistEncoded,
                     timeStamp=datetime.datetime.now().strftime("%A, %d. %B %Y %I:%M%p"),
-                    number=self.number)
+                    number=self.number,
+                    normPower=normPower,
+                    Theta1RadFinal=Theta1RadFinal)
                 self.number += 1
                 processedImagesList.append(processedImage)
                 count += 1
@@ -637,5 +719,5 @@ def main():
     fft_app.show()
     sys.exit(app.exec_())
 
-if __name__ == "__main__":
+if __name__.endswith("__main__"):
     main()

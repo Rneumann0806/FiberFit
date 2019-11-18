@@ -9,7 +9,7 @@ class ImgModel:
 
     def __init__(self, filename,sig = None, k=None, th=None, R2=None, orgImg=None, orgImgEncoded=None, logScl=None,
                  logSclEncoded=None,  angDist=None, angDistEncoded=None, cartDist=None,
-                 cartDistEncoded=None, timeStamp=None, number = None):
+                 cartDistEncoded=None, timeStamp=None, number = None, normPower=None, Theta1RadFinal=None):
         self.filename = filename
         self.sig = sig,
         self.th = th
@@ -25,6 +25,8 @@ class ImgModel:
         self.cartDistEncoded = cartDistEncoded
         self.timeStamp = timeStamp
         self.number = number
+        self.normPower = normPower
+        self.Theta1RadFinal=Theta1RadFinal
 
     def _key(self):
         return self.filename

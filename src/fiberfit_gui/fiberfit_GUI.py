@@ -39,19 +39,20 @@ class Ui_MainWindow(object):
         self.midGrid.setObjectName("midGrid")
 
         self.selectImgBox = QtWidgets.QComboBox(self.centralwidget)
+        self.selectImgBox.AdjustToContents
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.selectImgBox.sizePolicy().hasHeightForWidth())
         self.selectImgBox.setSizePolicy(sizePolicy)
-        self.selectImgBox.setMinimumSize(QtCore.QSize(170, 0))
-        self.selectImgBox.setMaximumSize(QtCore.QSize(170, 16777215))
+        self.selectImgBox.setMinimumSize(QtCore.QSize(1000, 0))
+        self.selectImgBox.setMaximumSize(QtCore.QSize(500, 16777215))
         self.selectImgBox.setObjectName("selectImgBox")
         self.midGrid.addWidget(self.selectImgBox, 0, 0, 1, 1)
 
         # Progress bar
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                           QtWidgets.QSizePolicy.MinimumExpanding)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                           QtWidgets.QSizePolicy.Preferred)
         self.progressBar = QtWidgets.QProgressBar(self.centralwidget)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)

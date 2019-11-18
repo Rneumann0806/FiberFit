@@ -44,7 +44,7 @@ class Ui_Dialog(object):
         # inner top frame containing actual text field and input field
         self.tfieldFrame = QtWidgets.QFrame(self.upperFrame)
         self.tfieldFrame.setMinimumSize(QtCore.QSize(70, 80))
-        self.tfieldFrame.setMaximumSize(QtCore.QSize(70, 80))
+        # self.tfieldFrame.setMaximumSize(QtCore.QSize(70, 80))
         self.tfieldFrame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.tfieldFrame.setObjectName("tfieldFrame")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.tfieldFrame)
@@ -52,13 +52,13 @@ class Ui_Dialog(object):
 
         # top field of top most frame in the settings window
         self.ttopField = QtWidgets.QLineEdit(self.tfieldFrame)
-        self.ttopField.setMaximumSize(QtCore.QSize(50, 50))
+        # self.ttopField.setMaximumSize(QtCore.QSize(50, 50))
         self.ttopField.setObjectName("ttopField")
         self.verticalLayout.addWidget(self.ttopField)
 
         # bottom field of the top most frame in the settings window
         self.tbottomField = QtWidgets.QLineEdit(self.tfieldFrame)
-        self.tbottomField.setMaximumSize(QtCore.QSize(50, 50))
+        # self.tbottomField.setMaximumSize(QtCore.QSize(50, 50))
         self.tbottomField.setObjectName("tbottomField")
 
         self.verticalLayout.addWidget(self.tbottomField)
@@ -86,7 +86,7 @@ class Ui_Dialog(object):
         # inner bottom frame containing actual text field and input field
         self.bfieldFrame = QtWidgets.QFrame(self.bottomFrame)
         self.bfieldFrame.setMinimumSize(QtCore.QSize(70, 80))
-        self.bfieldFrame.setMaximumSize(QtCore.QSize(70, 80))
+        # self.bfieldFrame.setMaximumSize(QtCore.QSize(70, 80))
         self.bfieldFrame.setFrameShape(QtWidgets.QFrame.StyledPanel)
         self.bfieldFrame.setFrameShadow(QtWidgets.QFrame.Raised)
         self.bfieldFrame.setObjectName("bfieldFrame")
@@ -95,13 +95,13 @@ class Ui_Dialog(object):
 
         # top field of the bottom most frame
         self.btopField = QtWidgets.QLineEdit(self.bfieldFrame)
-        self.btopField.setMaximumSize(QtCore.QSize(50, 50))
+        # self.btopField.setMaximumSize(QtCore.QSize(50, 50))
         self.btopField.setObjectName("btopField")
         self.verticalLayout_2.addWidget(self.btopField)
 
         # bottom field of the bottom most frame
         self.bbottomField = QtWidgets.QLineEdit(self.bfieldFrame)
-        self.bbottomField.setMaximumSize(QtCore.QSize(50, 50))
+        # self.bbottomField.setMaximumSize(QtCore.QSize(50, 50))
         self.bbottomField.setObjectName("bbottomField")
         self.verticalLayout_2.addWidget(self.bbottomField)
         self.horizontalLayout_2.addWidget(self.bfieldFrame)

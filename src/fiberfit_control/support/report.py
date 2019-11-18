@@ -6,16 +6,97 @@ from src.fiberfit_control.support import img_model
 from PyQt5.QtWidgets import QDialogButtonBox, QDialog, QFileDialog
 from PyQt5.QtGui import QTextDocument
 from PyQt5.QtPrintSupport import QPrinter
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QSizeF
 from PyPDF2 import PdfFileMerger as merger
-from PyQt5 import QtWebKitWidgets
+from PyQt5 import QtWebEngineWidgets
 import csv
+# from orderedset import OrderedSet
 import pathlib
 import os
+import numpy as np
+import collections
 
-class OrderedSet(set):
-    def __init__(self):
-        super(OrderedSet, self).__init__()
+class OrderedSet(collections.MutableSet):
+    """
+    # Recipe from http://code.activestate.com/recipes/576694/
+    Banana banana
+    """
+
+    def __init__(self, iterable=None):
+        self.end = end = []
+        end += [None, end, end]         # sentinel node for doubly linked list
+        self.map = {}                   # key --> [key, prev, next]
+        if iterable is not None:
+            self |= iterable
+
+    def __len__(self):
+        return len(self.map)
+
+    def __contains__(self, key):
+        return key in self.map
+
+    def add(self, key):
+        if key not in self.map:
+            end = self.end
+            curr = end[1]
+            curr[2] = end[1] = self.map[key] = [key, curr, end]
+
+    def __getstate__(self):
+        if len(self) == 0:
+            # The state can't be an empty list.
+            # We need to return a truthy value, or else
+            # __setstate__ won't be run.
+            #
+            # This could have been done more gracefully by always putting
+            # the state in a tuple, but this way is backwards- and forwards-
+            # compatible with previous versions of OrderedSet.
+            return (None,)
+        else:
+            return list(self)
+
+    def __setstate__(self, state):
+        if state == (None,):
+            self.__init__([])
+        else:
+            self.__init__(state)
+
+    def discard(self, key):
+        if key in self.map:
+            key, prev, nxt = self.map.pop(key)
+            prev[2] = nxt
+            nxt[1] = prev
+
+    def __iter__(self):
+        end = self.end
+        curr = end[2]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[2]
+
+    def __reversed__(self):
+        end = self.end
+        curr = end[1]
+        while curr is not end:
+            yield curr[0]
+            curr = curr[1]
+
+    # pylint: disable=arguments-differ
+    def pop(self, last=True):
+        if not self:
+            raise KeyError('set is empty')
+        key = self.end[1][0] if last else self.end[2][0]
+        self.discard(key)
+        return key
+
+    def __repr__(self):
+        if not self:
+            return '%s()' % (self.__class__.__name__,)
+        return '%s(%r)' % (self.__class__.__name__, list(self))
+
+    def __eq__(self, other):
+        if isinstance(other, OrderedSet):
+            return len(self) == len(other) and list(self) == list(other)
+        return set(self) == set(other)
 
 class ReportDialog(QDialog, export_window.Ui_Dialog):
     """ Summary of ReportDialog.
@@ -34,6 +115,7 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
     """
     do_print = pyqtSignal()
     do_excel = pyqtSignal()
+    do_RawCSV = pyqtSignal()
     sendDataList = pyqtSignal(list)
 
     def __init__(self, fft_mainWindow,parent=None, screenDim=None):
@@ -63,16 +145,19 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
         """
         self.isReport = True
         self.isSummary = False
+        self.isRaw = False
         self.reportOption = 2
         self.merger = merger()
         # printer
         self.printer = QPrinter(QPrinter.PrinterResolution)
         # Signals and slots:
         self.do_excel.connect(self.exportExcel)
-        self.webView = QtWebKitWidgets.QWebView()
+        self.do_RawCSV.connect(self.exportRawCSV)
+        self.webView = QtWebEngineWidgets.QWebEngineView()
 
         # self.checkBox_report.stateChanged.connect(self.topLogicHandler)
         self.checkBox_summary.stateChanged.connect(self.topLogicHandler)
+        self.checkBox_RawData.stateChanged.connect(self.topLogicHandler)
 
         self.radio_multiple.toggled.connect(self.toggleHandler)
         self.radio_single.toggled.connect(self.toggleHandler)
@@ -90,11 +175,13 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
         self.radio_single.setChecked(False)
 
     def exportHandler(self):
-        if self.isSummary and self.isReport is False:
-            self.saveas()
-        elif (self.reportOption == 0 or self.reportOption == 2 or self.reportOption == 1) and self.isSummary is False:
-            self.saveas()
-        elif self.isSummary and self.isReport:
+        # if self.isSummary and self.isReport is False:
+        #     self.saveas()
+        # elif (self.reportOption == 0 or self.reportOption == 2 or self.reportOption == 1) and self.isSummary is False:
+        #     self.saveas()
+        # elif self.isSummary and self.isReport:
+        #     self.saveas()
+        if (self.isSummary or self.reportOption == 0 or self.reportOption==1 or self.reportOption==2 or self.isReport or self.isRaw):
             self.saveas()
 
     def toggleHandler(self):
@@ -113,35 +200,44 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
         elif self.radio_none.isChecked():
             self.reportOption = -1
             self.isReport = False
-            if (not self.checkBox_summary.isChecked()):
+            if (not self.checkBox_summary.isChecked()) and (not self.checkBox_RawData.isChecked()):
                 self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def topLogicHandler(self):
+
         if self.checkBox_summary.isChecked():
             self.isSummary = True
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
         elif self.checkBox_summary.isChecked() is False:
             self.isSummary = False
-            if (self.radio_none.isChecked()):
+            if (self.radio_none.isChecked()) and self.checkBox_RawData.isChecked() is False:
+                self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+
+        if self.checkBox_RawData.isChecked():
+            self.isRaw = True
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+        elif self.checkBox_RawData.isChecked() is False:
+            self.isRaw = False
+            if (self.radio_none.isChecked()) and self.checkBox_summary.isChecked() is False:
                 self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     @pyqtSlot()
     def exportExcel(self):
         if self.dataList.__len__() == 0:
             self.dataList.append(
-                [self.wholeList[0].filename.stem,
+                [self.wholeList.__getstate__()[0].filename.stem,
                  self.uCut,
                  self.lCut,
                  self.radStep,
                  self.angleInc,
-                 self.wholeList[0].sig,
-                 self.wholeList[0].th,
-                 self.wholeList[0].k,
-                 self.wholeList[0].R2,
-                 self.wholeList[0].timeStamp])
+                 self.wholeList.__getstate__()[0].sig,
+                 self.wholeList.__getstate__()[0].th,
+                 self.wholeList.__getstate__()[0].k,
+                 self.wholeList.__getstate__()[0].R2,
+                 self.wholeList.__getstate__()[0].timeStamp])
         temp = []
         for i in range(0, self.wholeList.__len__()):
-            temp.append(self.wholeList[i])
+            temp.append(self.wholeList.__getstate__()[i])
         for i in range(0, len(self.dataList)):
             found = False
             for j in range(0, len(temp)):
@@ -171,11 +267,21 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
                                   round(temp[k].k, 2),
                                   round(temp[k].R2, 2),
                                   temp[k].timeStamp])
-        with open(str(self.savedfiles.parents[0]) + '/summary.csv', 'w') as csvfile:
+        with open(str(self.savedfiles.parents[0]) + '/summary.csv', 'w', newline='') as csvfile:
             a = csv.writer(csvfile)
             a.writerow(['Name', 'LowerCut', 'UpperCut', 'RadialStep', 'AngleIncrement', 'Sig', 'Mu', 'K', 'R^2', 'Time'])
             a.writerows(self.dataList)
         self.fft_mainWindow.dataList = self.dataList
+
+    @pyqtSlot()
+    def exportRawCSV(self):
+        for i in range(len(self.wholeList)):
+            with open(os.path.join(str(self.savedfiles.parents[0]), self.wholeList.__getstate__()[i].filename.stem+'.csv'), 'w', newline='') as csvfile:
+                a = csv.writer(csvfile)
+                a.writerow([str(self.wholeList.__getstate__()[i].filename.stem), str(self.wholeList.__getstate__()[i].timeStamp)])
+                a.writerow(['Theta (radians)', 'NormalizedPS'])
+                for ii in range(len(self.wholeList.__getstate__()[i].Theta1RadFinal)):
+                    a.writerow([self.wholeList.__getstate__()[i].Theta1RadFinal[ii], self.wholeList.__getstate__()[i].normPower[ii]])
 
     def saveas(self):
         """
@@ -193,7 +299,7 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
             self.savedfiles = pathlib.Path(dialog.getSaveFileName(self, "Export",
                                                                   "Report")[0])
             self.close()
-        if (self.isSummary and not self.isReport):
+        if (self.isSummary and not self.isReport) or (self.isRaw and not self.isReport):
             self.savedfiles = pathlib.Path(dialog.getSaveFileName(self, "Export",
                                                                   "SummaryTable")[0])
         self.printerSetup()
@@ -201,6 +307,8 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
             self.do_print.emit()
         if self.isSummary == True:
             self.do_excel.emit()
+        if self.isRaw == True:
+            self.do_RawCSV.emit()
 
     def print(self):
         """
@@ -211,26 +319,35 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
                 self.document.setHtml(self.createHtml(model, forPrinting=True))
                 self.printer.setOutputFileName(
                     self.savedfiles.parents[0].__str__() + '/' + self.savedfiles.name.replace("Image Name", "") + model.filename.stem + '.pdf')
+                # self.document.setPageSize(QSizeF(self.printer.pageRect().size()))
                 self.document.print(self.printer)
         elif (self.reportOption == 0):
+            # self.document.setPageSize(QSizeF(self.printer.pageRect().size()))
             self.document.print(self.printer)
 
         elif (self.reportOption == 2):
             self.merger = merger()
+            input_list = []
             for model in self.wholeList:
                 self.document.setHtml(self.createHtml(model, forPrinting=True))
                 name = self.savedfiles.__str__() + '.pdf'
                 print(name)
                 self.printer.setOutputFileName(
                     self.savedfiles.parents[0].__str__() + '/' + self.savedfiles.name.replace("Image Name", "") + model.filename.stem + '.pdf')
+                # self.document.setPageSize(QSizeF(self.printer.pageRect().size()))
                 self.document.print(self.printer)
                 input = open(self.savedfiles.parents[0].__str__() + '/' + self.savedfiles.name.replace("Image Name", "") + model.filename.stem + '.pdf', "rb")
                 self.merger.append(input)
-                os.remove(self.savedfiles.parents[0].__str__() + '/' + self.savedfiles.name.replace("Image Name", "") + model.filename.stem + '.pdf')
+                input_list.append([input, self.savedfiles.parents[0].__str__() + '/' + self.savedfiles.name.replace("Image Name", "") + model.filename.stem + '.pdf'])
 
             out = open(name, "wb")
             self.merger.write(out)
             self.merger.close()
+
+            #Close and remove individual sample PDFs. Separate loop because they are needed to make the merged PDF. -Erica Neumann
+            for PDF_input in input_list:
+                PDF_input[0].close()
+                os.remove(PDF_input[1])
 
     def printerSetup(self):
         """
@@ -247,10 +364,11 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
         """
         # for printing
         if forPrinting:
+            print(os.getcwd())
             html = """
         <html>
             <head>
-                <link type="text/css" rel="stylesheet" href="ntm_style.css"/>
+                <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='support/ntm_style.css') }}"/>
             </head>
             <body>
                 <p> Image Name: {name} </p> <p> μ: {th}° </p>
@@ -260,12 +378,12 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
                 <br>
                 <table>
                     <tr>
-                        <td> <img src = "data:image/png;base64,{encodedOrgImg}" width = "250", height = "250" /></td>
-                        <td> <img src ="data:image/png;base64,{encodedLogScl}" width = "250", height = "250"/></td>
+                        <td> <img src = "data:image/png;base64,{encodedOrgImg}" width = "600" /></td>
+                        <td> <img src ="data:image/png;base64,{encodedLogScl}" width = "600"/></td>
                     </tr>
                     <tr>
-                        <td> <img src = "data:image/png;base64,{encodedAngDist}" width = "250", height = "250" /></td>
-                        <td> <img src = "data:image/png;base64,{encodedCartDist}" width = "250", height = "250" /></td>
+                        <td> <img src = "data:image/png;base64,{encodedAngDist}" width = "600" /></td>
+                        <td> <img src = "data:image/png;base64,{encodedCartDist}" width = "600" /></td>
                     </tr>
                 </table>
                 <p><br><br>

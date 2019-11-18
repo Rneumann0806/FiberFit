@@ -1,18 +1,18 @@
 import sys
 import matplotlib
 import numpy as np
-import scipy
-import scipy.ndimage
-import scipy.interpolate
-import scipy.optimize
-import scipy.integrate
-import scipy.stats
+from scipy import ndimage, interpolate, optimize, integrate, stats
+# import ndimage
+# import interpolate
+# import optimize
+# import integrate
+# import stats
 import math
 import time
 import glob
 from pylab import *
 from pandas import DataFrame
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
 
 from src.fiberfit_model.EllipseDirectFit import*
@@ -58,7 +58,7 @@ def process_histogram(PabsFlip, N1, uCut, lCut, angleInc, radStep):
     PowerY = np.zeros((theta1Rad.size))
 
     # Interpolate using a Spine
-    PowerSpline = scipy.interpolate.RectBivariateSpline(y=y, x=x, z=PabsFlip)
+    PowerSpline = interpolate.RectBivariateSpline(y=y, x=x, z=PabsFlip)
     n_dx = 0.001
 
     for p in range(0, theta1Rad.size):
@@ -145,18 +145,18 @@ def process_kappa(t_final, theta1RadFinal, normPower, figWidth, figHeigth, dir, 
     t_final_rad = t_final * pi / 180
 
     def fitted_func(thetas, c):
-        int_value, int_err = scipy.integrate.quadrature(func=lambda x: exp(c * cos(x)), a=0.0, b=np.pi)
+        int_value, int_err = integrate.quadrature(func=lambda x: exp(c * cos(x)), a=0.0, b=np.pi)
         return ((np.pi * (1.0 / np.pi * (int_value))) ** - 1) * \
                np.exp(c * np.cos(2 * (thetas - t_final_rad)))
 
     c0 = 15
-    kappa, kappa_pcov = scipy.optimize.curve_fit(f=fitted_func, p0=(c0,), xdata=theta1RadFinal, ydata=normPower)
+    kappa, kappa_pcov = optimize.curve_fit(f=fitted_func, p0=(c0,), xdata=theta1RadFinal, ydata=normPower)
 
     # Shift data for plotting purposes
     t = t_final
 
     diff = abs(theta1RadFinal - (t * pi / 180))
-    centerLoc = find(diff == min(diff))
+    centerLoc = argmin(diff)
 
     num_angles = len(theta1RadFinal)
     shift = (round(num_angles / 2) - (num_angles - centerLoc))
@@ -196,7 +196,7 @@ def process_kappa(t_final, theta1RadFinal, normPower, figWidth, figHeigth, dir, 
     plt.ylim([0, max(normPower1) + .3])
     cartDist.savefig(dir + 'cartDist_' + number.__str__(), bbox_inches='tight')
     plt.close()
-    slope, intercept, rValue, pValue, stderr = scipy.stats.linregress(p_act, normPower1)
+    slope, intercept, rValue, pValue, stderr = stats.linregress(p_act, normPower1)
     return kappa, cartDist, rValue
 
 
@@ -221,7 +221,7 @@ def process_image(name, uCut, lCut, angleInc, radStep, screenDim, dpi, directory
     figWidth = 4.5
     figHeigth = 4.5
 
-    im = scipy.ndimage.imread(fname=str(name))
+    im = ndimage.imread(fname=str(name))
     m, n = im.shape
 
     # Remove a row and column if the dimension of the image is odd
@@ -284,7 +284,7 @@ def process_image(name, uCut, lCut, angleInc, radStep, screenDim, dpi, directory
     x = k[0]
     sig = math.exp(b*x) + c*math.exp(d*x) + e*exp(f*x)
     end_time = time.time()
-    return sig, k[0], t_final, rValue**2, angDist, cartDist, logScale, originalImage, figWidth, figHeigth, (end_time-start_time)
+    return sig, k[0], t_final, rValue**2, angDist, cartDist, logScale, originalImage, figWidth, figHeigth, (end_time-start_time), normPower, theta1RadFinal
 
 
 def pol2cart(theta, radius):

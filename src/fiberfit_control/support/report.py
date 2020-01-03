@@ -365,6 +365,7 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
         # for printing
         if forPrinting:
             print(os.getcwd())
+            wid = int(self.fft_mainWindow.dpi)*3 # make all images 3 inches in width
             html = """
         <html>
             <head>
@@ -378,12 +379,12 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
                 <br>
                 <table>
                     <tr>
-                        <td> <img src = "data:image/png;base64,{encodedOrgImg}" width = "600" /></td>
-                        <td> <img src ="data:image/png;base64,{encodedLogScl}" width = "600"/></td>
+                        <td> <img src = "data:image/png;base64,{encodedOrgImg}" width = {wid} /></td>
+                        <td> <img src ="data:image/png;base64,{encodedLogScl}" width = {wid}/></td>
                     </tr>
                     <tr>
-                        <td> <img src = "data:image/png;base64,{encodedAngDist}" width = "600" /></td>
-                        <td> <img src = "data:image/png;base64,{encodedCartDist}" width = "600" /></td>
+                        <td> <img src = "data:image/png;base64,{encodedAngDist}" width = {wid} /></td>
+                        <td> <img src = "data:image/png;base64,{encodedCartDist}" width = {wid} /></td>
                     </tr>
                 </table>
                 <p><br><br>
@@ -397,6 +398,7 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
                    encodedLogScl=model.logSclEncoded.translate('bn\''),
                    encodedAngDist=model.angDistEncoded.translate('bn\''),
                    encodedCartDist=model.cartDistEncoded.translate('bn\''),
+                   wid=str(wid),
                    date=model.timeStamp)
             return html
 
@@ -413,7 +415,7 @@ class ReportDialog(QDialog, export_window.Ui_Dialog):
     @pyqtSlot(list, list, OrderedSet, float, float, float, float)
     def receiver(self, selectedImgs, dataList, imgList, uCut, lCut, radStep, angleInc):
         """
-        Received an information from FiberFit applicatin with necessary report data.
+        Received an information from FiberFit application with necessary report data.
         """
         self.dataList = dataList
         self.list = selectedImgs

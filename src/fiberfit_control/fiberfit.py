@@ -346,7 +346,7 @@ Please go back to "Settings" and change some values.
         """
         Makes so that screen can be resized after the images loaded.
         """
-        self.resize(0.7 * self.screen_dim.height(), 0.8 * self.screen_dim.height())
+        self.resize(0.4 * self.screen_dim.width(), 0.45 * self.screen_dim.width())
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding,
                                            QtWidgets.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)

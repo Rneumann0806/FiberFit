@@ -26,7 +26,7 @@ class Ui_MainWindow(object):
         MainWindow.setMaximumSize(QtCore.QSize(width, heigth))
         MainWindow.setAutoFillBackground(False)
 
-        fSize = 0.007*heigth
+        fSize = .07*self.dpi
 
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
